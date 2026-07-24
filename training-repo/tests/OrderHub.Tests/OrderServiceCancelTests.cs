@@ -60,4 +60,26 @@ public class OrderServiceCancelTests
         Assert.False(result.Success);
         Assert.Contains("找不到", result.ErrorMessage);
     }
+
+    /// <summary>
+    /// Regression: cancelling must restore product stock that was decremented on create.
+    /// </summary>
+    [Fact]
+    public async Task CancelOrder_RestoresProductStock()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+        var product = TestSetup.AddProduct(db, stock: 10);
+
+        var created = await service.CreateOrderAsync(customer.Id, new[] { new NewOrderLine(product.Id, 3) });
+        Assert.True(created.Success);
+        Assert.Equal(7, db.Products.Single(p => p.Id == product.Id).StockQuantity);
+
+        var cancelled = await service.CancelOrderAsync(created.Value!.Id);
+
+        Assert.True(cancelled.Success);
+        Assert.Equal(OrderStatus.Cancelled, db.Orders.Single(o => o.Id == created.Value.Id).Status);
+        Assert.Equal(10, db.Products.Single(p => p.Id == product.Id).StockQuantity);
+    }
 }
