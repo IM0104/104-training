@@ -27,9 +27,10 @@ public class OrderRepository : IOrderRepository
 
         var totalCount = await query.CountAsync();
 
+        // page is 1-based (service clamps page < 1 to 1)
         var items = await query
             .OrderByDescending(o => o.CreatedAt)
-            .Skip(page * pageSize)
+            .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
