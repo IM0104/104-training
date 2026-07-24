@@ -31,5 +31,31 @@ public class ProductsController : Controller
 
         return View(vm);
     }
-}
 
+    /// <summary>
+    /// Low-stock alert: GET /Products/LowStock?threshold=10
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> LowStock(int? threshold)
+    {
+        var vm = new LowStockViewModel
+        {
+            Threshold = threshold ?? LowStockViewModel.DefaultThreshold
+        };
+
+        // DataAnnotations + ModelState: invalid threshold must show form error, not 500.
+        if (!TryValidateModel(vm))
+            return View(vm);
+
+        var items = await _productService.GetLowStockAsync(vm.Threshold);
+        vm.Products = items.Select(p => new LowStockRowViewModel
+        {
+            Sku = p.Sku,
+            Name = p.Name,
+            StockQuantity = p.StockQuantity,
+            SoldLast30Days = p.SoldLast30Days
+        }).ToList();
+
+        return View(vm);
+    }
+}
