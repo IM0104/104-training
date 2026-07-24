@@ -36,6 +36,46 @@ public class OrderServiceCreateTests
         Assert.Equal(380m, result.Value!.Items.Single().UnitPriceSnapshot);
     }
 
+    /// <summary>
+    /// Regression: Gold discount must be applied once on order total only,
+    /// not baked into UnitPriceSnapshot (which would double-discount with CalculateTotal).
+    /// </summary>
+    [Fact]
+    public async Task CreateOrder_GoldCustomer_DoesNotBakeDiscountIntoUnitPriceSnapshot()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db, CustomerTier.Gold);
+        var product = TestSetup.AddProduct(db, unitPrice: 1000m);
+
+        var result = await service.CreateOrderAsync(customer.Id, new[] { new NewOrderLine(product.Id, 1) });
+
+        Assert.True(result.Success);
+        var order = result.Value!;
+        order.Customer = customer;
+
+        Assert.Equal(1000m, order.Items.Single().UnitPriceSnapshot);
+        Assert.Equal(900m, service.CalculateTotal(order));
+    }
+
+    [Fact]
+    public async Task CreateOrder_SilverCustomer_AppliesSingleDiscountOnTotal()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db, CustomerTier.Silver);
+        var product = TestSetup.AddProduct(db, unitPrice: 1000m);
+
+        var result = await service.CreateOrderAsync(customer.Id, new[] { new NewOrderLine(product.Id, 1) });
+
+        Assert.True(result.Success);
+        var order = result.Value!;
+        order.Customer = customer;
+
+        Assert.Equal(1000m, order.Items.Single().UnitPriceSnapshot);
+        Assert.Equal(950m, service.CalculateTotal(order));
+    }
+
     [Fact]
     public async Task CreateOrder_DecrementsProductStock()
     {
