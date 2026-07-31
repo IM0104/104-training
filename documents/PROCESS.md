@@ -234,3 +234,12 @@ Agent 對上「先 `Status = Cancelled` 再判斷 Pending/Confirmed 才還庫存
 差異一句話：**沒工具 = 讀程式推；有工具 = 一次呼叫打真實 DB，答案可核對商品頁。**
 
 註冊檔：`training-repo/.mcp.json`（`dotnet run --project src/OrderHub.Mcp`）。
+
+### 練習 4 — 會改資料的 cancel_order
+
+- 工具只轉接 `OrderService.CancelOrderAsync`，狀態檢查與庫存回補不重複寫。
+- Annotations（煙霧客戶端讀到）：
+  - `get_order` / `low_stock` / `customer_orders`：`ReadOnlyHint=True`
+  - `cancel_order`：`DestructiveHint=True`（Idempotent=false）
+- 對不存在 Id 呼叫：`取消失敗:找不到指定的訂單`（清楚訊息，不是 stack trace）。
+- **設計體會**：標註是給 client 的提示（是否跳確認），真正授權仍靠 service 層拒絕非法狀態；同一筆再取消或已出貨單會得到 service 的拒絕字串。
