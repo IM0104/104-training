@@ -192,3 +192,45 @@ Agent 對上「先 `Status = Cancelled` 再判斷 Pending/Confirmed 才還庫存
 - 改成先還庫存再標記取消  
 
 我 commit：`af3f4ec`（中間的 Gold 定價則是 `4b5963a`，同一套「症狀→根因→修法→測試→commit」）。
+
+---
+
+## 第二階段 — MCP Server（活動 2）
+
+#### 使用的 agent 與模型（活動 2）：
+
+- Grok Build／Grok 4.5
+- OrderHub MCP：`src/OrderHub.Mcp`（stdio + ModelContextProtocol 2.0.0）
+- 除錯：自寫 `tools/McpSmoke` 客戶端（本機 Node 18 跑不動最新 Inspector，改以 MCP client 煙霧測）
+
+### 練習 0 / 活動 1 對比（工具化前後）
+
+活動 1 修 bug 時，重現要自己開 `/Orders`、建單、對金額、取消看庫存。  
+活動 2 有 MCP 後，同一類查詢可變成一次 `get_order` / `low_stock` / `customer_orders` 工具呼叫——**重現步驟可委派給 agent + 工具**，不必每次手寫 SQL 或爬 Controller。
+
+### 練習 3 — before / after：庫存低於 5
+
+**Before（關掉 orderhub MCP）：**
+
+問：「哪些商品庫存低於 5？」
+
+- agent 只能讀 `ProductRepository` / 跑測試 / 猜種子資料，或請我開 `/Products` 手抄。
+- 路徑長：讀碼 → 推斷如何查 → 可能自己寫 LINQ 片段，還不一定連到我的真實 DB。
+
+**After（`training-repo/.mcp.json` 啟用 orderhub）：**
+
+同一問題 → 直接 `low_stock(threshold=5)`（或 10 再過濾）。
+
+煙霧測試實測 `threshold=10` 時前幾筆例如：
+
+| Sku | StockQuantity |
+|-----|---------------|
+| SKU-1048 | 2 |
+| SKU-1005 | 3 |
+| SKU-1023 | 3 |
+| SKU-1014 | 4 |
+| SKU-1032 | 4 |
+
+差異一句話：**沒工具 = 讀程式推；有工具 = 一次呼叫打真實 DB，答案可核對商品頁。**
+
+註冊檔：`training-repo/.mcp.json`（`dotnet run --project src/OrderHub.Mcp`）。
