@@ -243,3 +243,24 @@ Agent 對上「先 `Status = Cancelled` 再判斷 Pending/Confirmed 才還庫存
   - `cancel_order`：`DestructiveHint=True`（Idempotent=false）
 - 對不存在 Id 呼叫：`取消失敗:找不到指定的訂單`（清楚訊息，不是 stack trace）。
 - **設計體會**：標註是給 client 的提示（是否跳確認），真正授權仍靠 service 層拒絕非法狀態；同一筆再取消或已出貨單會得到 service 的拒絕字串。
+
+### 練習 5 — Resources / Prompts 與 5c 思考
+
+**已提供：**
+
+- Resource：`orderhub://discount-rules`（會員折扣 Markdown）
+- Prompt：`low_stock_report`（threshold 參數 → 引導呼叫 `low_stock` 再產出採購表）
+
+煙霧客戶端驗證：`RESOURCE_COUNT=1`、`PROMPT_COUNT=1`、`GetPrompt(threshold=5)` 回 1 則 user message。
+
+**5c 第 3 點（寫下來）：**
+
+1. **折扣規則用 Resource vs 讓 agent 讀 `OrderService.cs`**  
+   - Resource：client 可把「目前生效規則」當背景知識塞進 context，不必搜程式；產品/業務可改字串（或之後改成動態組裝）而不逼 agent 理解 C#。  
+   - 讀原始碼：易拿到實作細節甚至過期註解，也容易跟「總額折一次」這類產品語言脫節。  
+   - **風險相同點**：resource 若寫死字串、service 改規則但沒同步 → 兩份真相（和工具裡不要重算折扣是同一課）。
+
+2. **Prompt 範本放 server vs 每個人自己打一段話**  
+   - Server prompt：進版控、全隊同一套「低庫存報告」流程，參數（threshold）一致，改版改一處。  
+   - 各自打字：用語不一、有人漏呼叫 tool、有人門檻亂填，難 audit。  
+   - Prompt **引導** tool，不是取代 tool——動作仍走 `low_stock`，範本只負責「怎麼問」。
