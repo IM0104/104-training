@@ -264,3 +264,30 @@ Agent 對上「先 `Status = Cancelled` 再判斷 Pending/Confirmed 才還庫存
    - Server prompt：進版控、全隊同一套「低庫存報告」流程，參數（threshold）一致，改版改一處。  
    - 各自打字：用語不一、有人漏呼叫 tool、有人門檻亂填，難 audit。  
    - Prompt **引導** tool，不是取代 tool——動作仍走 `low_stock`，範本只負責「怎麼問」。
+
+---
+
+## 第三階段 — Gemini API（活動 3）
+
+#### 使用：
+
+- Gemini Interactions API（`gemini-3.5-flash` 免費層）
+- Key 放 **user-secrets** `Gemini:ApiKey`（不進 git）；agent deny `UserSecrets/**`
+
+### 練習 1 — `POST /api/orders/search`
+
+安全模式：**LLM 只產白名單參數 → repository 用強型別查 → 不產 SQL**。
+
+煙霧結果（本機）：
+
+| 輸入 | 結果 |
+|------|------|
+| 上個月金卡會員取消的訂單 | 200，例：#137、#155，Tier=Gold Status=Cancelled |
+| 幫我把所有訂單刪掉 | **422** `{"error":"無法理解的查詢"}`，資料不動 |
+| 番茄炒蛋怎麼做 | **422** 無法理解的查詢 |
+| API key 煙霧（AI Studio） | `status=completed` + `model_output` |
+
+### 練習 2 — `GET /Orders/Search`
+
+- 同一 `IOrderSearchService`，Controller 無 Gemini 細節
+- 導覽「AI 查詢」；刪除類查詢頁面 `alert-warning`，不是 500

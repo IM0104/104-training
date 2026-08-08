@@ -34,10 +34,12 @@
 
 - `src/OrderHub.Infrastructure/Migrations/**`：EF migration 是歷史紀錄，不要手改
 - `src/OrderHub.Web/appsettings.json`：連線字串等設定，改動前先問
+- `%APPDATA%\Microsoft\UserSecrets\**`：API key 等機密，禁止讀寫
 
 ## 不要做的事
 
 - 不要未經同意就加新的 NuGet 套件
 - 不要在 Controller / Service 直接使用 DbContext
 - 不要為了「順手」重構與當前任務無關的程式碼
-- 不要讀取或寫入任何機密檔（*.pfx、appsettings.Production.json、user-secrets）
+- 不要讀取或寫入任何機密檔（*.pfx、appsettings.Production.json、user-secrets、UserSecrets）
+- Gemini API key 只走 user-secrets / 環境變數，**絕不**寫進原始碼或 commit
