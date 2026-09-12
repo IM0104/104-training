@@ -291,3 +291,31 @@ Agent 對上「先 `Status = Cancelled` 再判斷 Pending/Confirmed 才還庫存
 
 - 同一 `IOrderSearchService`，Controller 無 Gemini 細節
 - 導覽「AI 查詢」；刪除類查詢頁面 `alert-warning`，不是 500
+
+---
+
+## 第四階段 — n8n 自動化（活動 4）
+
+#### 程式碼補齊（已完成）
+
+- `OrderHub.Mcp` 支援雙 transport：預設 stdio；`--http` → `http://localhost:3001`（streamable HTTP，`Stateless=true`）
+- 套件：`ModelContextProtocol.AspNetCore` **2.0.0**（與既有 `ModelContextProtocol` 2.0.0 對齊；文件寫的 preview.2 是舊鎖版）
+- 驗證：`POST /` + `Accept: application/json, text/event-stream` → `initialize` 200；`tools/list` 回 4 工具（含 `get_order` / `cancel_order` annotations）
+- commit：`175ba45 feat(mcp): 加開 HTTP streamable transport 供 n8n 使用`
+- `.mcp.json` **不用改**（不帶 `--http` 仍走 stdio）
+
+#### n8n 手動練習狀態
+
+- 練習 1–3（Webhook / 退單日報 / MCP Client Tool）需在瀏覽器操作，見對話中 checklist。
+- 啟動三件套（做 n8n 前先開）：
+  1. `dotnet run --project src/OrderHub.Web`（5150）
+  2. `dotnet run --project src/OrderHub.Mcp -- --http`（3001，練習 3 才要）
+  3. `npx n8n` → `http://localhost:5678`
+
+#### 練習 2 思考題（先寫答案，跑完再補實測）
+
+若「查什麼、怎麼查」也交給 AI Agent 自由發揮，會失去：
+
+1. **活動 3 白名單防線**——模型可能發明條件或繞過 intent=unsupported  
+2. **可測試性**——同一句話每次參數不穩定，回歸難  
+3. **日報數字可信度**——查詢集合漂移，摘要無法與 `/Orders` 對帳  
