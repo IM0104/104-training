@@ -296,27 +296,74 @@ Agent 對上「先 `Status = Cancelled` 再判斷 Pending/Confirmed 才還庫存
 
 ## 第四階段 — n8n 自動化（活動 4）
 
-#### 程式碼補齊（已完成）
+#### 使用的工具
 
-- `OrderHub.Mcp` 支援雙 transport：預設 stdio；`--http` → `http://localhost:3001`（streamable HTTP，`Stateless=true`）
-- 套件：`ModelContextProtocol.AspNetCore` **2.0.0**（與既有 `ModelContextProtocol` 2.0.0 對齊；文件寫的 preview.2 是舊鎖版）
-- 驗證：`POST /` + `Accept: application/json, text/event-stream` → `initialize` 200；`tools/list` 回 4 工具（含 `get_order` / `cancel_order` annotations）
+- n8n **1.107.4**（本機 `npx`；系統 Node 18 不夠，改用便攜 Node **22.19** 於 `tools/node22`）
+- OrderHub Web `:5150`、MCP HTTP `:3001`、n8n Editor `:5678`
+
+#### 程式碼補齊（MCP HTTP）
+
+- `OrderHub.Mcp` 雙 transport：預設 stdio；`--http` → `http://localhost:3001`
 - commit：`175ba45 feat(mcp): 加開 HTTP streamable transport 供 n8n 使用`
-- `.mcp.json` **不用改**（不帶 `--http` 仍走 stdio）
+- `.mcp.json` 不用改
 
-#### n8n 本機實作進度（2026-09-12）
+#### 練習 1 — Hello Webhook（實測）
 
-- 系統 Node 18 → 下載便攜 **Node 22.19** 於 `tools/node22`（不進 git）後才能跑 n8n 1.107
-- n8n：`http://localhost:5678`；owner `orderhub@local.test`（僅本機）
-- 已匯入並驗證：
-  - **練習1-Hello-Webhook** 已 Activate；`POST /webhook/hello` 回 `text` + `receivedAt`（HTTP 200）
-  - **練習2-退單巡檢日報-骨架** 已匯入到 AI/IF；Gemini credential / GitHub / Data Table 留給 UI 補
-- 匯入檔：`training-repo/n8n/*.json` + 操作說明 `training-repo/n8n/README.md`
+- Workflow 已 Activate；Production URL：`POST http://localhost:5678/webhook/hello`
+- 實測回應含原 body（如 `text=hello` / `ping`）+ `receivedAt` ISO 時間戳，HTTP 200
+- **Test vs Production**：Test 要 Listen、一發即停；Activate 後 Production URL 常駐，紀錄看 Executions
 
-#### 練習 2 思考題（先寫答案，跑完再補實測）
+#### 練習 2 — 退單巡檢日報（實測）
 
-若「查什麼、怎麼查」也交給 AI Agent 自由發揮，會失去：
+流程：Schedule → HTTP `POST /api/orders/search` → Code「整理筆數」→ AI Agent + Gemini → IF（count>0）
 
-1. **活動 3 白名單防線**——模型可能發明條件或繞過 intent=unsupported  
-2. **可測試性**——同一句話每次參數不穩定，回歸難  
-3. **日報數字可信度**——查詢集合漂移，摘要無法與 `/Orders` 對帳  
+| 觀測 | 結果 |
+|------|------|
+| HTTP 查「已取消的訂單」 | 約 **20** 筆 Cancelled（例：#4 Standard、#137 Gold） |
+| 「過去 30 天取消」 | 種子取消單多在 30 天外 → count=0，走「本日無退單」分支（合理） |
+| Gemini credential | UI 建立 `Google Gemini(PaLM) Api account`，需綁到 Chat Model 節點 |
+| 模型 | 活動文件的 flash 名稱會變；曾遇 `gemini-2.5-flash` 對新 key 404、`gemini-3.6-flash` 可用於純對話 |
+
+GitHub Issue / Data Table / 通知 webhook：骨架已留 true/false 分支佔位，token 與表可之後補。
+
+#### 練習 2 思考題：若「查什麼、怎麼查」也交給 AI 自由發揮，會失去什麼？
+
+1. **活動 3 白名單防線**  
+   現在查詢固定打 `POST /api/orders/search`，LLM 只在 API 內把自然語言收成 `status/tier/date*`；`intent=unsupported`（刪單、食譜）會 422。若改成 Agent 自己組 SQL／亂打 endpoint，等於繞過白名單與「模型不碰 SQL」。
+
+2. **可測試性**  
+   今天固定 body（例如「已取消的訂單」）→ repository 條件可預期，可用同一句回歸。若 Agent 每次自己決定條件，同一排程無法對拍、失敗難重現。
+
+3. **日報數字可信度**  
+   日報應能和 `/Orders` 篩「已取消」對帳。若 Agent 自行加時間窗或漏條件，筆數／總額會漂，摘要無法審計。  
+   **實測對照**：同一句「過去 30 天」vs「已取消」筆數從 0 變 20——條件必須由產品 API 釘死，不能讓摘要模型順便改查詢。
+
+一句話：**編排（n8n）可以靈活，查詢契約必須留在 OrderHub。**
+
+#### 練習 3 — MCP 合體（實測）
+
+設定：
+
+- AI Agent 掛 **MCP Client Tool** → Endpoint `http://127.0.0.1:3001/`、Transport **HTTP Streamable**、Auth None  
+- **Tools to Include = Selected → 只勾 `get_order`**（不掛 `cancel_order`）  
+- System Message 要求：對取消單先 `get_order`，日報引用真實品項
+
+執行觀察（n8n Executions，例 execution **#8**）：
+
+| 節點 | 結果 |
+|------|------|
+| 查詢取消訂單 / 整理筆數 | OK，count=20 |
+| **MCP get_order** | **OK，多次呼叫**；例訂單 **#155**：Customer 劉思穎 Gold；品項 `SKU-1021 雲峰 無線滑鼠`×2、`SKU-1047 晨光 降噪耳機`×5，金額可對上 snapshot |
+| Google Gemini + AI Agent | 工具回傳後下一輪請求失敗：`Function call is missing a thought_signature`（Gemini 3.x + n8n 1.107 已知問題） |
+
+→ **深挖（MCP）已驗證成功**；完整日報文字因 n8n／Gemini thought_signature 未收尾。升級 n8n 或換支援 tool-calling 且不強制 signature 的模型後可再跑通摘要。
+
+#### 練習 3 對照：有深挖 vs 沒深挖
+
+| | 練習 2（無 MCP） | 練習 3（有 `get_order`） |
+|--|------------------|-------------------------|
+| AI 看到的資料 | 列表摘要：id、客戶名、tier、status、total、createdAt | 另有**品項 SKU／名稱／數量／單價快照** |
+| 日報能寫到的深度 | 「Gold #137 總額 13608」層級 | 「#155 含無線滑鼠×2、降噪耳機×5」層級（執行紀錄已見工具輸出） |
+| 風險面 | 較低（只讀 search API） | 仍只讀；刻意**不掛** `cancel_order`，無人流程不能改庫 |
+
+差異一句話：沒深挖只能複述列表欄位；有深挖才能用訂單明細做「為什麼值得注意」的具體理由，且數字來自 MCP／DB 而非模型瞎編。
