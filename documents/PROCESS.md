@@ -304,13 +304,14 @@ Agent 對上「先 `Status = Cancelled` 再判斷 Pending/Confirmed 才還庫存
 - commit：`175ba45 feat(mcp): 加開 HTTP streamable transport 供 n8n 使用`
 - `.mcp.json` **不用改**（不帶 `--http` 仍走 stdio）
 
-#### n8n 手動練習狀態
+#### n8n 本機實作進度（2026-09-12）
 
-- 練習 1–3（Webhook / 退單日報 / MCP Client Tool）需在瀏覽器操作，見對話中 checklist。
-- 啟動三件套（做 n8n 前先開）：
-  1. `dotnet run --project src/OrderHub.Web`（5150）
-  2. `dotnet run --project src/OrderHub.Mcp -- --http`（3001，練習 3 才要）
-  3. `npx n8n` → `http://localhost:5678`
+- 系統 Node 18 → 下載便攜 **Node 22.19** 於 `tools/node22`（不進 git）後才能跑 n8n 1.107
+- n8n：`http://localhost:5678`；owner `orderhub@local.test`（僅本機）
+- 已匯入並驗證：
+  - **練習1-Hello-Webhook** 已 Activate；`POST /webhook/hello` 回 `text` + `receivedAt`（HTTP 200）
+  - **練習2-退單巡檢日報-骨架** 已匯入到 AI/IF；Gemini credential / GitHub / Data Table 留給 UI 補
+- 匯入檔：`training-repo/n8n/*.json` + 操作說明 `training-repo/n8n/README.md`
 
 #### 練習 2 思考題（先寫答案，跑完再補實測）
 

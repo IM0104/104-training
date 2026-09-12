@@ -20,3 +20,12 @@ node_modules/
 
 # Local settings that should not be shared
 *.local.json
+
+# local tooling
+tools/node22/
+tools/node22.zip
+tools/*.json
+tools/n8n-cookies.txt
+tools/*.mjs
+training-repo/n8n/*.local.*
+
